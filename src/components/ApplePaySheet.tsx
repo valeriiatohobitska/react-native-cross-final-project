@@ -6,9 +6,11 @@ import { CoffeeIcon } from './CoffeeIcon';
 type ApplePaySheetProps = {
   onCancel: () => void;
   onConfirm: () => void;
+  total: string;
+  itemSummary: string;
 };
 
-export function ApplePaySheet({ onCancel, onConfirm }: ApplePaySheetProps) {
+export function ApplePaySheet({ onCancel, onConfirm, total, itemSummary }: ApplePaySheetProps) {
   return (
     <View style={styles.sheet}>
       <View style={styles.titleRow}>
@@ -42,11 +44,11 @@ export function ApplePaySheet({ onCancel, onConfirm }: ApplePaySheetProps) {
       </View>
       <View style={styles.totalRow}>
         <Text style={styles.totalLabel}>SUBTOTAL{'\n'}SHIPPING</Text>
-        <Text style={styles.amount}>$ 6,00{'\n'}$ 0,00</Text>
+        <Text style={styles.amount}>{total}{'\n'}$ 0.00</Text>
       </View>
       <TouchableOpacity activeOpacity={0.8} onPress={onConfirm} style={styles.payRow}>
-        <Text style={styles.totalLabel}>PAY MOTOGUI</Text>
-        <Text style={styles.payAmount}>$ 6,00</Text>
+        <Text style={styles.totalLabel}>{itemSummary}</Text>
+        <Text style={styles.payAmount}>{total}</Text>
       </TouchableOpacity>
       <TouchableOpacity activeOpacity={0.8} onPress={onConfirm} style={styles.reader}>
         <ReaderIcon />

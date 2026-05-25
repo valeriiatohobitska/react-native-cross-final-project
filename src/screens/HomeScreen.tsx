@@ -14,6 +14,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { fetchCoffeeMenu } from '../api/coffeeApi';
 import { CoffeeIcon } from '../components/CoffeeIcon';
+import { FilterChips } from '../components/FilterChips';
 import { ProductCard } from '../components/ProductCard';
 import { SearchField } from '../components/SearchField';
 import { ToolbarButton } from '../components/ToolbarButton';
@@ -35,6 +36,7 @@ export function HomeScreen() {
   const [products, setProducts] = useState<CoffeeProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [selectedIngredients, setSelectedIngredients] = useState<string[]>([]);
   const { width } = useWindowDimensions();
   const appWidth = Math.min(width, layout.phoneMaxWidth);
   const columns = appWidth >= 360 ? 2 : 1;
@@ -42,6 +44,28 @@ export function HomeScreen() {
     () => (appWidth - spacing.lg * 2 - spacing.md * (columns - 1)) / columns,
     [appWidth, columns],
   );
+
+  const allIngredients = useMemo(
+    () => Array.from(new Set(products.flatMap(p => p.ingredients ?? []))).sort(),
+    [products],
+  );
+
+  const displayedProducts = useMemo(() => {
+    if (selectedIngredients.length === 0) {
+      return products;
+    }
+    return products.filter(p =>
+      selectedIngredients.every(ing => p.ingredients?.includes(ing)),
+    );
+  }, [products, selectedIngredients]);
+
+  const handleIngredientToggle = useCallback((ingredient: string) => {
+    setSelectedIngredients(prev =>
+      prev.includes(ingredient)
+        ? prev.filter(i => i !== ingredient)
+        : [...prev, ingredient],
+    );
+  }, []);
 
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
@@ -63,7 +87,7 @@ export function HomeScreen() {
     loadProducts();
   }, [loadProducts]);
 
-  const renderProduct = ({ item }: ListRenderItemInfo<CoffeeProduct>) => (
+  const renderProduct = useCallback(({ item }: ListRenderItemInfo<CoffeeProduct>) => (
     <ProductCard
       product={item}
       width={cardWidth}
@@ -71,13 +95,13 @@ export function HomeScreen() {
         navigation.navigate(SCREENS.PRODUCT_DETAILS, { productId: item.id })
       }
     />
-  );
+  ), [cardWidth, navigation]);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <FlatList
         key={columns}
-        data={products}
+        data={displayedProducts}
         numColumns={columns}
         renderItem={renderProduct}
         keyExtractor={item => item.id}
@@ -117,8 +141,19 @@ export function HomeScreen() {
             </View>
             <View style={styles.toolbar}>
               <ToolbarButton iconName="arrow-up-down" label="Sort" />
-              <ToolbarButton iconName="list-filter" label="Filter" badge="2" />
+              <ToolbarButton
+                iconName="list-filter"
+                label="Filter"
+                badge={selectedIngredients.length > 0 ? String(selectedIngredients.length) : undefined}
+              />
             </View>
+            {allIngredients.length > 0 && (
+              <FilterChips
+                ingredients={allIngredients}
+                selected={selectedIngredients}
+                onToggle={handleIngredientToggle}
+              />
+            )}
             {isLoading ? (
               <View style={styles.feedback}>
                 <ActivityIndicator color={colors.coffee} />

@@ -7,6 +7,7 @@ export const SCREENS = {
   TAB_CART: 'TabCart',
   TAB_HISTORY: 'TabHistory',
   TAB_PROFILE: 'TabProfile',
+  TAB_FAVOURITES: 'TabFavourites',
   HOME: 'Home',
   SEARCH: 'Search',
   PRODUCT_DETAILS: 'ProductDetails',

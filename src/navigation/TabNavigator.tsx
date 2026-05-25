@@ -9,9 +9,11 @@ import { RootState } from '../store/store';
 import { SCREENS } from '../constants/screens';
 import { layout, typography } from '../constants/theme';
 import { CartScreen } from '../screens/CartScreen';
+import { FavouritesScreen } from '../screens/FavouritesScreen';
 import { HistoryScreen } from '../screens/HistoryScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { StackNavigator } from './StackNavigator';
+import { useFavourites } from '../context/FavouritesContext';
 import { MainTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -44,11 +46,17 @@ function ProfileTabIcon({ color, size }: { color: string; size: number }) {
   return <TabIcon name="star" size={size} color={color} />;
 }
 
+function FavouritesTabIcon({ color, size }: { color: string; size: number }) {
+  return <TabIcon name="heart" size={size} color={color} />;
+}
+
 export function TabNavigator() {
   const { colors } = useTheme();
   const cartCount = useSelector((state: RootState) =>
     state.cart.reduce((sum, item) => sum + item.quantity, 0),
   );
+  const { favourites } = useFavourites();
+  const favouritesCount = favourites.length;
 
   return (
     <Tab.Navigator
@@ -86,6 +94,15 @@ export function TabNavigator() {
         name={SCREENS.TAB_HISTORY}
         component={HistoryScreen}
         options={{ title: 'History', tabBarIcon: HistoryTabIcon }}
+      />
+      <Tab.Screen
+        name={SCREENS.TAB_FAVOURITES}
+        component={FavouritesScreen}
+        options={{
+          title: 'Favourites',
+          tabBarIcon: FavouritesTabIcon,
+          tabBarBadge: favouritesCount > 0 ? favouritesCount : undefined,
+        }}
       />
       <Tab.Screen
         name={SCREENS.TAB_PROFILE}

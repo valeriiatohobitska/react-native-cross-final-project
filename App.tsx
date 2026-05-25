@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider } from 'react-redux';
 import { DrawerNavigator } from './src/navigation/DrawerNavigator';
 import { ThemeProvider, useTheme } from './src/context/ThemeContext';
+import { FavouritesProvider } from './src/context/FavouritesContext';
 import { store } from './src/store/store';
 import { layout } from './src/constants/theme';
 
@@ -34,9 +35,11 @@ function App() {
   return (
     <Provider store={store}>
       <ThemeProvider>
-        <SafeAreaProvider>
-          <AppContent />
-        </SafeAreaProvider>
+        <FavouritesProvider>
+          <SafeAreaProvider>
+            <AppContent />
+          </SafeAreaProvider>
+        </FavouritesProvider>
       </ThemeProvider>
     </Provider>
   );

@@ -13,6 +13,7 @@ export type MainTabParamList = {
   [SCREENS.TAB_CART]: undefined;
   [SCREENS.TAB_HISTORY]: undefined;
   [SCREENS.TAB_PROFILE]: undefined;
+  [SCREENS.TAB_FAVOURITES]: undefined;
 };
 
 export type RootDrawerParamList = {

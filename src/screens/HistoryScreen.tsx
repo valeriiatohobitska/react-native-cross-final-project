@@ -1,20 +1,16 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useSelector } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
+import { RootState } from '../store/store';
 import { spacing, typography } from '../constants/theme';
 import { formatOrderDate } from '../utils/formatDate';
-
-// Sample past orders — in a real app these would come from the API/store
-const SAMPLE_ORDERS = [
-  { id: '1', title: 'Espresso', price: '$3.50', date: '2026-05-23T09:14:00Z' },
-  { id: '2', title: 'Cappuccino', price: '$4.20', date: '2026-05-22T15:30:00Z' },
-  { id: '3', title: 'Cold Brew', price: '$5.00', date: '2026-05-21T11:05:00Z' },
-];
 
 export function HistoryScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const orders = useSelector((state: RootState) => state.orders);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background, paddingTop: insets.top + spacing.lg }]}>
@@ -22,26 +18,38 @@ export function HistoryScreen() {
       <Text style={[styles.description, { color: colors.muted }]}>
         Recent coffee orders and receipts are grouped here.
       </Text>
-      <View style={styles.list}>
-        {SAMPLE_ORDERS.map(order => (
-          <View
-            key={order.id}
-            style={[styles.row, { borderBottomColor: colors.border }]}>
-            <View style={styles.rowBody}>
-              <Text style={[styles.rowTitle, { color: colors.text }]}>
-                {order.title}
-              </Text>
-              {/* formatOrderDate uses dayjs — replaces moment.js (227 kB → 2 kB) */}
-              <Text style={[styles.rowDate, { color: colors.muted }]}>
-                {formatOrderDate(order.date)}
-              </Text>
-            </View>
-            <Text style={[styles.rowPrice, { color: colors.text }]}>
-              {order.price}
-            </Text>
-          </View>
-        ))}
-      </View>
+      {orders.length === 0 ? (
+        <Text style={[styles.emptyText, { color: colors.muted }]}>
+          No orders yet. Complete a purchase to see your history here.
+        </Text>
+      ) : (
+        <View style={styles.list}>
+          {orders.map(order => {
+            const rowTitle =
+              order.items.length === 1
+                ? order.items[0].title
+                : `${order.items[0].title} & ${order.items.length - 1} more`;
+
+            return (
+              <View
+                key={order.id}
+                style={[styles.row, { borderBottomColor: colors.border }]}>
+                <View style={styles.rowBody}>
+                  <Text style={[styles.rowTitle, { color: colors.text }]}>
+                    {rowTitle}
+                  </Text>
+                  <Text style={[styles.rowDate, { color: colors.muted }]}>
+                    {formatOrderDate(order.date)}
+                  </Text>
+                </View>
+                <Text style={[styles.rowPrice, { color: colors.text }]}>
+                  {order.total}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -61,6 +69,10 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     marginBottom: spacing.xl,
   },
+  emptyText: {
+    fontSize: typography.body,
+    lineHeight: 21,
+  },
   list: {
     gap: spacing.xs,
   },
@@ -73,6 +85,8 @@ const styles = StyleSheet.create({
   },
   rowBody: {
     gap: spacing.xs,
+    flex: 1,
+    marginRight: spacing.md,
   },
   rowTitle: {
     fontSize: typography.body,

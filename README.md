@@ -1,255 +1,152 @@
-This is a React Native homework project for cross assignment 7 (performance optimisation).
+# Coffee Shop App — React Native
 
-## Assignment 7: Performance Optimisation
-
-### Task 1 — Analysis
-
-| Area          | Component                      | Issue                                                                                                                                                 |
-| ------------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Animation     | `ProductCard`                  | No visual feedback on press; `react-native-reanimated` was installed but unused                                                                       |
-| Re-renders    | `CartRow` in `CartScreen`      | Every Redux state change (e.g. incrementing one item) re-rendered **all** rows because callbacks were recreated inline and no memoisation was applied |
-| Bundle weight | `@react-native/new-app-screen` | 0.85.3 demo package (~60 kB) was listed as a runtime dependency but never imported anywhere in the codebase                                           |
+A mobile coffee ordering app built with React Native, TypeScript, Redux Toolkit, and React Navigation.
 
 ---
 
-### Task 2 — Animation with Reanimated (`ProductCard`)
+## Overview
 
-**File:** `src/components/ProductCard.tsx`
+The app lets users browse a coffee menu loaded from a REST API, add drinks to a cart, save favourites, filter by ingredient, and complete orders through a checkout flow. Completed orders are saved to a history screen.
 
-Replaced the plain `TouchableOpacity` wrapper with a spring-scale press animation using `react-native-reanimated` v4 and `react-native-gesture-handler`:
+[Demo](screenshots/demo.mov)
 
-- `useSharedValue(1)` — stores the card's current scale on the UI thread.
-- `useAnimatedStyle` — derives the `transform: [{ scale }]` style reactively on the UI thread (no JS bridge round-trip).
-- `Gesture.Tap()` with `.onBegin` / `.onFinalize` — squishes the card to `0.93` on press down and springs back to `1.0` on release.
-- `withSpring({ damping: 12, stiffness: 200 })` — gives a natural elastic bounce instead of a linear transition.
-
-**Before:** card had only `activeOpacity={0.84}` (a simple opacity dip).  
-**After:** card scales down and bounces back with a spring animation visible on every product press.
-
-[Animation demo](screenshots/animation.mov)
+**Tech stack:** React Native 0.85 · TypeScript · Redux Toolkit · Context API · React Navigation (Drawer + Tab + Stack) · React Native Reanimated · React Native Gesture Handler
 
 ---
 
-### Task 3 — Re-render optimisation (`CartScreen` / `CartRow`)
+## Features
 
-**File:** `src/screens/CartScreen.tsx`
+### Favourites
 
-Three optimisation techniques applied:
+Heart button on every product card and on the product details screen. Tap to save or remove a drink. A dedicated **Favourites** tab shows saved drinks in a grid and displays an empty state when none are saved. The tab badge updates with the current count.
 
-| Technique     | Applied to                                                                | Effect                                                                                                                       |
-| ------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `React.memo`  | `CartRow` component                                                       | Row skips re-render when its own `item`, `onRemove`, `onDecrement`, `onIncrement` props are reference-equal                  |
-| `useCallback` | `handleRemove`, `handleDecrement`, `handleIncrement`                      | Stable function references across renders (only `dispatch` is a dependency, which Redux guarantees is stable)                |
-| `useMemo`     | `total` computation in `CartScreen`, `lineTotal` computation in `CartRow` | Price string parsing + multiplication only re-runs when `cart` (or individual `item.price`/`item.quantity`) actually changes |
+### Menu Filtering
 
-**Before:** pressing `+` on item A caused every `CartRow` (including items B, C, …) to re-render because the handler functions were re-created on each `CartScreen` render, breaking `memo`'s shallow comparison.  
-**After:** only the row whose quantity changed re-renders.
+A horizontal scrollable row of ingredient chips appears below the toolbar on the home screen. Selecting chips filters the menu (AND logic — a drink must contain all selected ingredients). The Filter button badge reflects the number of active filters.
+
+### Order History
+
+After a successful checkout the order is saved to Redux state and appears in the **History** tab. The history screen shows a real-time list of past orders with item summary, total, and date. An empty state is shown when no orders have been placed yet.
+
+### Cart & Checkout
+
+The cart screen lists added items with quantity controls and a running total. A **Checkout** button in the footer navigates to the payment screen. On payment confirmation the cart is cleared and the order is recorded.
 
 ---
 
-### Task 4 — Dependency cleanup / bundle reduction
+## State Management
 
-**Removed:** `@react-native/new-app-screen` (0.85.3)  
-This is a boilerplate demo package generated by `react-native init`. It was listed as a runtime dependency but was never imported anywhere in the project, adding dead weight to the bundle.
+| State              | Tool        | Reason                                                 |
+| ------------------ | ----------- | ------------------------------------------------------ |
+| Light / dark theme | Context API | UI preference, no transactional requirements           |
+| Favourites         | Context API | UI-level state, scoped to browsing, not transactional  |
+| Shopping cart      | Redux       | Transactional data read across multiple screens        |
+| Order history      | Redux       | Transactional data that must persist across navigation |
 
-**Added:** `dayjs` (^1.11.x)  
-`dayjs` is a minimal date formatting library (~2 kB gzipped). It was added to replace manual date string handling and to demonstrate a lightweight alternative to heavier date libraries that are common in other projects.
+`FavouritesProvider` and `ThemeProvider` are mounted above the navigator so the tab bar can read favourites count for the badge. Redux `Provider` wraps the whole tree.
 
-**Used in:** `src/utils/formatDate.ts` → `formatOrderDate(isoDate)` → consumed by `HistoryScreen` to format order timestamps (e.g. `"May 24, 2026 · 14:30"`).
+---
 
-**Bundle analysis command:**
+## Project Structure
 
-```sh
-# react-native-bundle-visualizer handles Metro source maps correctly
-npx react-native-bundle-visualizer
+```
+src/
+├── api/
+│   └── coffeeApi.ts            # fetchCoffeeMenu(), fetchCoffeeProduct()
+├── components/
+│   ├── FavouriteButton.tsx     # Heart toggle button (inactive / active states)
+│   ├── FilterChips.tsx         # Horizontal ingredient filter chip row
+│   ├── ProductCard.tsx         # Card with spring-scale animation + heart overlay
+│   ├── ApplePaySheet.tsx       # Apple Pay UI mock
+│   ├── CheckoutHeader.tsx      # Checkout back button + title
+│   ├── CoffeeIcon.tsx          # Lucide icon wrapper
+│   ├── PayButton.tsx           # Primary CTA button
+│   ├── PaymentOption.tsx       # Radio payment method selector
+│   ├── RecentSearchList.tsx    # Recent search history list
+│   ├── SearchField.tsx         # Search input with icon
+│   ├── SuccessModal.tsx        # Order confirmation overlay
+│   └── ToolbarButton.tsx       # Sort / Filter toolbar button with badge
+├── constants/
+│   ├── screens.ts              # Screen name constants
+│   └── theme.ts                # Colors, spacing, typography, radii
+├── context/
+│   ├── FavouritesContext.tsx   # Favourites state + useFavourites() hook
+│   └── ThemeContext.tsx        # Theme state + useTheme() hook
+├── data/
+│   └── products.ts             # CoffeeProduct type, static fallback data
+├── navigation/
+│   ├── DrawerNavigator.tsx     # Root drawer (Menu, Help, Contacts, Log out)
+│   ├── StackNavigator.tsx      # Home → Product Details → Checkout
+│   ├── TabNavigator.tsx        # Menu / Cart / History / Favourites / Profile
+│   └── types.ts                # Navigation param list types
+├── screens/
+│   ├── CartScreen.tsx          # Cart list, quantity controls, Checkout button
+│   ├── CheckoutScreen.tsx      # Payment selection, placeOrder + clearCart
+│   ├── ContactsScreen.tsx      # Contact info (drawer)
+│   ├── FavouritesScreen.tsx    # Favourites grid or empty state
+│   ├── HelpScreen.tsx          # Help & support (drawer)
+│   ├── HistoryScreen.tsx       # Order history from Redux
+│   ├── HomeScreen.tsx          # Menu grid with search and filter chips
+│   ├── LogoutScreen.tsx        # Logout confirmation (drawer)
+│   ├── ProductDetailsScreen.tsx# Product image, details, Add to Cart, heart
+│   ├── ProfileScreen.tsx       # Avatar, theme toggle
+│   └── SearchScreen.tsx        # Full-screen search input
+├── store/
+│   ├── cartSlice.ts            # addItem, removeItem, updateQuantity, clearCart
+│   ├── ordersSlice.ts          # Order type, placeOrder
+│   └── store.ts                # configureStore, RootState, AppDispatch
+└── utils/
+    └── formatDate.ts           # dayjs-based date formatter
 ```
 
-## ![Before bundle reduction](image-7.png)
+---
 
-## ![After bundle reduction](image-6.png)
+## Navigation Structure
 
-## Assignment 6: Context API and Redux
-
-Assignment 6 adds global state management on top of the existing navigation and API work from assignment 5.
-
-### Context API — Theme (light / dark)
-
-`ThemeContext` provides a `theme` value (`'light'` | `'dark'`), a full set of
-`colors`, and a `toggleTheme` function. `ThemeProvider` wraps the root of the
-app so every screen and component reads colours from the context instead of the
-static `src/constants/theme.ts` file.
-
-The toggle is exposed as a `Switch` on the **Profile** screen. Switching it
-re-renders the whole app in the opposite colour scheme.
-
-Relevant files:
-
-- `src/context/ThemeContext.tsx` — context, provider and `useTheme()` hook
-- `src/screens/ProfileScreen.tsx` — Switch to toggle the theme
-- Every screen and component uses `useTheme()` for colours
-
-### Redux — Shopping Cart
-
-`cartSlice` manages the cart state with three reducers:
-
-| Action                             | Behaviour                                                                             |
-| ---------------------------------- | ------------------------------------------------------------------------------------- |
-| `addItem(product)`                 | Adds the product with `quantity: 1`; increments quantity if it is already in the cart |
-| `removeItem(id)`                   | Removes the item with the given id                                                    |
-| `updateQuantity({ id, quantity })` | Updates item quantity; removes the item if quantity ≤ 0                               |
-
-The Redux `store` is provided at the root via `<Provider>`. Screens access state
-with `useSelector` and dispatch actions with `useDispatch`.
-
-Relevant files:
-
-- `src/store/cartSlice.ts` — slice with `addItem`, `removeItem`, `updateQuantity`
-- `src/store/store.ts` — `configureStore` with `RootState` and `AppDispatch` types
-- `src/screens/CartScreen.tsx` — full cart UI: list, quantity controls, total, empty state
-- `src/screens/ProductDetailsScreen.tsx` — "Add to Cart" button dispatches `addItem`
-- `src/navigation/TabNavigator.tsx` — cart tab badge shows total item count
+```
+DrawerNavigator
+└── DRAWER_HOME → TabNavigator
+    ├── TAB_MENU → StackNavigator
+    │   ├── HOME
+    │   ├── SEARCH
+    │   ├── PRODUCT_DETAILS
+    │   └── CHECKOUT
+    ├── TAB_CART
+    ├── TAB_HISTORY
+    ├── TAB_FAVOURITES
+    └── TAB_PROFILE
+```
 
 ---
 
-The app is based on a Figma coffee ordering prototype. Assignment 5 adds
-external API data loading on top of the Stack, Tab and Drawer navigation:
+## Getting Started
 
-- Drawer: coffee menu, help, contacts and log out screens.
-- Tabs: menu, cart, order history and profile.
-- Stack: menu -> search -> product details -> checkout.
-- API: hot coffee menu from `https://api.sampleapis.com/coffee/hot`.
-
-Product cards are loaded with Fetch API, rendered in `FlatList`, and pass
-`productId` through `navigation.navigate()`. The product details and checkout
-screens read it from `route.params`, load the selected item, and show fallback
-states if the id is missing or invalid.
-
-## Implemented UI Components
-
-The app screen is built from reusable React Native components stored in `src/components`:
-
-- `SearchField` - rounded search input from the menu/search screens.
-- `ToolbarButton` - Sort and Filter controls with an optional badge.
-- `ProductCard` - coffee image, drink name and price.
-- `BottomTabBar` - Menu, Favourites, Cart and Profile navigation.
-- `RecentSearchList` - recent search item with a remove action.
-- `CheckoutHeader` - checkout title bar with back button.
-- `PaymentOption` - Apple Pay and Credit card option cards.
-- `PayButton` - action button used across the app.
-- `ApplePaySheet` - visual mock of the Apple Pay confirmation sheet.
-- `SuccessModal` - order confirmation dialog.
-- `CoffeeIcon` - wrapper around Lucide vector icons from `@react-native-vector-icons/lucide`.
-
-Shared spacing, radii, typography and platform shadows are stored in `src/constants/theme.ts`.
-Theme colours (light and dark) are provided by `src/context/ThemeContext.tsx`.
-Demo data is stored in `src/data/products.ts`.
-API request logic is stored in `src/api/coffeeApi.ts`.
-Navigation constants are stored in `src/constants/screens.ts`, and navigators
-are split into `src/navigation/StackNavigator.tsx`,
-`src/navigation/TabNavigator.tsx` and `src/navigation/DrawerNavigator.tsx`.
-
-The layout uses `useWindowDimensions` and keeps the prototype responsive for different screen widths and orientations.
-Icons use the optional `react-native-vector-icons` family package recommended in the homework tips.
-
-## API and Navigation Demo
-
-[Watch navigation demo](screenshots/navigation-demo.mov)
-
-The demo shows the API coffee list, product details navigation, checkout, tabs
-and drawer screens.
-
-# Getting Started
-
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
-
-## Step 1: Start Metro
-
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
-
-To start the Metro dev server, run the following command from the root of your React Native project:
+### 1. Install dependencies
 
 ```sh
-# Using npm
+npm install
+```
+
+### 2. Install iOS native dependencies
+
+```sh
+pod install --project-directory=ios
+```
+
+> Re-run `pod install` after cloning or when native dependencies change.
+
+### 3. Start Metro
+
+```sh
 npm start
-
-# OR using Yarn
-yarn start
 ```
 
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
+### 4. Run the app
 
 ```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
-```
-
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
-bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
+# iOS
 npm run ios
 
-# OR using Yarn
-yarn ios
+# Android
+npm run android
 ```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.

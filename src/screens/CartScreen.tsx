@@ -8,10 +8,14 @@ import {
   View,
 } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
+import { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../context/ThemeContext';
 import { RootState } from '../store/store';
 import { CartItem, removeItem, updateQuantity } from '../store/cartSlice';
+import { SCREENS } from '../constants/screens';
+import { MainTabParamList } from '../navigation/types';
 import { radii, spacing, typography } from '../constants/theme';
 
 type CartRowProps = {
@@ -75,11 +79,21 @@ const CartRow = memo(function CartRow({
   );
 });
 
+type Navigation = BottomTabNavigationProp<MainTabParamList, typeof SCREENS.TAB_CART>;
+
 export function CartScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const cart = useSelector((state: RootState) => state.cart);
   const dispatch = useDispatch();
+  const navigation = useNavigation<Navigation>();
+
+  const handleCheckout = useCallback(() => {
+    navigation.navigate(SCREENS.TAB_MENU, {
+      screen: SCREENS.CHECKOUT,
+      params: {},
+    });
+  }, [navigation]);
 
   // useCallback: stable references so CartRow.memo sees identical props between renders
   const handleRemove = useCallback(
@@ -138,9 +152,18 @@ export function CartScreen() {
           <Text style={[styles.screenTitle, { color: colors.text }]}>Cart</Text>
         }
         ListFooterComponent={
-          <View style={[styles.footer, { borderTopColor: colors.border }]}>
-            <Text style={[styles.totalLabel, { color: colors.muted }]}>Total</Text>
-            <Text style={[styles.totalValue, { color: colors.text }]}>${total}</Text>
+          <View style={styles.footerBlock}>
+            <View style={[styles.footer, { borderTopColor: colors.border }]}>
+              <Text style={[styles.totalLabel, { color: colors.muted }]}>Total</Text>
+              <Text style={[styles.totalValue, { color: colors.text }]}>${total}</Text>
+            </View>
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.85}
+              onPress={handleCheckout}
+              style={[styles.checkoutBtn, { backgroundColor: colors.coffee }]}>
+              <Text style={styles.checkoutBtnText}>Checkout</Text>
+            </TouchableOpacity>
           </View>
         }
       />
@@ -215,13 +238,27 @@ const styles = StyleSheet.create({
   removeBtnText: {
     fontSize: typography.body,
   },
+  footerBlock: {
+    marginTop: spacing.xl,
+    gap: spacing.lg,
+  },
   footer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.xl,
     paddingTop: spacing.lg,
     borderTopWidth: 1,
+  },
+  checkoutBtn: {
+    height: 52,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkoutBtnText: {
+    color: '#FFFFFF',
+    fontSize: typography.body,
+    fontWeight: '900',
   },
   totalLabel: {
     fontSize: typography.body,

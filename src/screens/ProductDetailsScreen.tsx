@@ -3,6 +3,7 @@ import { ActivityIndicator, Image, ScrollView, StyleSheet, Text, View } from 're
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useDispatch } from 'react-redux';
 import { fetchCoffeeProduct } from '../api/coffeeApi';
+import { FavouriteButton } from '../components/FavouriteButton';
 import { PayButton } from '../components/PayButton';
 import { useTheme } from '../context/ThemeContext';
 import { addItem } from '../store/cartSlice';
@@ -82,7 +83,10 @@ export function ProductDetailsScreen({ navigation, route }: Props) {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}>
       <Image source={{ uri: product.imageUrl }} style={styles.image} />
-      <Text style={[styles.title, { color: colors.text }]}>{product.title}</Text>
+      <View style={styles.titleRow}>
+        <Text style={[styles.title, { color: colors.text }]}>{product.title}</Text>
+        <FavouriteButton product={product} size={24} />
+      </View>
       <Text style={[styles.price, { color: colors.coffeeDark }]}>{product.price}</Text>
       <Text style={[styles.description, { color: colors.muted }]}>{product.description}</Text>
       {product.ingredients?.length ? (
@@ -117,10 +121,16 @@ const styles = StyleSheet.create({
     aspectRatio: 1.15,
     borderRadius: radii.md,
   },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.xl,
+  },
   title: {
     fontSize: typography.title,
     fontWeight: '900',
-    marginTop: spacing.xl,
+    flex: 1,
   },
   price: {
     fontSize: typography.heading,

@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useDispatch, useSelector } from 'react-redux';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { fetchCoffeeProduct } from '../api/coffeeApi';
 import { ApplePaySheet } from '../components/ApplePaySheet';
 import { CheckoutHeader } from '../components/CheckoutHeader';
 import { PaymentOption } from '../components/PaymentOption';
@@ -11,40 +11,52 @@ import { SuccessModal } from '../components/SuccessModal';
 import { useTheme } from '../context/ThemeContext';
 import { SCREENS } from '../constants/screens';
 import { layout, spacing, typography } from '../constants/theme';
-import { CoffeeProduct } from '../data/products';
 import { HomeStackParamList } from '../navigation/types';
+import { RootState } from '../store/store';
+import { clearCart, CartItem } from '../store/cartSlice';
+import { placeOrder } from '../store/ordersSlice';
 
 type Props = NativeStackScreenProps<HomeStackParamList, typeof SCREENS.CHECKOUT>;
 
-export function CheckoutScreen({ navigation, route }: Props) {
+function computeTotal(items: CartItem[]): string {
+  const sum = items.reduce((acc, item) => {
+    const price = parseFloat(item.price.replace(/[^0-9.]/g, ''));
+    return acc + price * item.quantity;
+  }, 0);
+  return `$ ${sum.toFixed(2)}`;
+}
+
+export function CheckoutScreen({ navigation }: Props) {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
+  const dispatch = useDispatch();
+  const cart = useSelector((state: RootState) => state.cart);
   const [paymentMethod, setPaymentMethod] = useState<'apple' | 'card'>('apple');
   const [isPaySheetVisible, setIsPaySheetVisible] = useState(false);
   const [isSuccessVisible, setIsSuccessVisible] = useState(false);
-  const [product, setProduct] = useState<CoffeeProduct | null>(null);
-  const [isLoadingProduct, setIsLoadingProduct] = useState(true);
-  const [errorMessage, setErrorMessage] = useState('');
-  const productId = route.params?.productId;
 
-  const loadProduct = useCallback(async () => {
-    setIsLoadingProduct(true);
-    setErrorMessage('');
+  const total = useMemo(() => computeTotal(cart), [cart]);
 
-    try {
-      const selectedProduct = await fetchCoffeeProduct(productId);
-      setProduct(selectedProduct);
-    } catch {
-      setErrorMessage('Could not refresh order details.');
-      setProduct(null);
-    } finally {
-      setIsLoadingProduct(false);
+  const orderDescription = useMemo(() => {
+    if (cart.length === 0) {
+      return 'Your cart is empty.';
     }
-  }, [productId]);
+    const itemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const firstName = cart[0].title;
+    const itemsLabel = itemCount === 1 ? '1 item' : `${itemCount} items`;
+    return cart.length === 1
+      ? `${firstName} · ${itemsLabel} · ${total}`
+      : `${firstName} & ${cart.length - 1} more · ${itemsLabel} · ${total}`;
+  }, [cart, total]);
 
-  useEffect(() => {
-    loadProduct();
-  }, [loadProduct]);
+  const itemSummary = useMemo(() => {
+    if (cart.length === 0) {
+      return 'ORDER';
+    }
+    return cart.length === 1
+      ? cart[0].title.toUpperCase()
+      : `${cart[0].title.toUpperCase()} +${cart.length - 1}`;
+  }, [cart]);
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -57,21 +69,9 @@ export function CheckoutScreen({ navigation, route }: Props) {
           <Text style={[styles.checkoutTitle, { color: colors.text }]}>
             Choose a payment method
           </Text>
-          {isLoadingProduct ? (
-            <View style={styles.loadingRow}>
-              <ActivityIndicator color={colors.coffee} />
-              <Text style={[styles.checkoutDescription, { color: colors.muted }]}>
-                Loading order details...
-              </Text>
-            </View>
-          ) : (
-            <Text style={[styles.checkoutDescription, { color: colors.muted }]}>
-              {product
-                ? `You are ordering ${product.title} for ${product.price}.`
-                : errorMessage ||
-                  'Product id was not passed, so the order will be reviewed before payment.'}
-            </Text>
-          )}
+          <Text style={[styles.checkoutDescription, { color: colors.muted }]}>
+            {orderDescription}
+          </Text>
         </View>
         <View style={styles.paymentStack}>
           <PaymentOption
@@ -97,8 +97,20 @@ export function CheckoutScreen({ navigation, route }: Props) {
         <View style={styles.paymentModal}>
           <View style={styles.paymentModalPhone}>
             <ApplePaySheet
+              total={total}
+              itemSummary={itemSummary}
               onCancel={() => setIsPaySheetVisible(false)}
               onConfirm={() => {
+                dispatch(
+                  placeOrder({
+                    id: Date.now().toString(),
+                    items: [...cart],
+                    total: computeTotal(cart),
+                    date: new Date().toISOString(),
+                    paymentMethod,
+                  }),
+                );
+                dispatch(clearCart());
                 setIsPaySheetVisible(false);
                 setIsSuccessVisible(true);
               }}
@@ -141,12 +153,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: spacing.sm,
     maxWidth: 320,
-  },
-  loadingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
   },
   paymentStack: {
     gap: spacing.lg,

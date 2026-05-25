@@ -9,6 +9,7 @@ import {
   GestureDetector,
   Gesture,
 } from 'react-native-gesture-handler';
+import { FavouriteButton } from './FavouriteButton';
 import { useTheme } from '../context/ThemeContext';
 import { radii, spacing, typography } from '../constants/theme';
 import { CoffeeProduct } from '../data/products';
@@ -41,16 +42,18 @@ export function ProductCard({ product, width, onPress }: ProductCardProps) {
     });
 
   return (
-    <GestureDetector gesture={tap}>
-      <Animated.View
-        style={[styles.card, { width, backgroundColor: colors.card }, animatedStyle]}>
-        <Image source={{ uri: product.imageUrl }} style={styles.image} />
-        <View style={styles.copy}>
-          <Text style={[styles.title, { color: colors.text }]}>{product.title}</Text>
-          <Text style={[styles.price, { color: colors.text }]}>{product.price}</Text>
+    <Animated.View style={[styles.card, { width, backgroundColor: colors.card }, animatedStyle]}>
+      <GestureDetector gesture={tap}>
+        <View style={styles.tappable}>
+          <Image source={{ uri: product.imageUrl }} style={styles.image} />
+          <View style={styles.copy}>
+            <Text style={[styles.title, { color: colors.text }]}>{product.title}</Text>
+            <Text style={[styles.price, { color: colors.text }]}>{product.price}</Text>
+          </View>
         </View>
-      </Animated.View>
-    </GestureDetector>
+      </GestureDetector>
+      <FavouriteButton product={product} size={18} style={styles.heartOverlay} />
+    </Animated.View>
   );
 }
 
@@ -59,9 +62,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: radii.md,
   },
+  tappable: {
+    width: '100%',
+  },
   image: {
     width: '100%',
     aspectRatio: 1.2,
+  },
+  heartOverlay: {
+    position: 'absolute',
+    top: spacing.sm,
+    right: spacing.sm,
   },
   copy: {
     minHeight: 68,
